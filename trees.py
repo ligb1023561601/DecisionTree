@@ -4,7 +4,7 @@
 # @File     : trees.py
 
 """
-决策树的基本算法实现
+决策树的基本算法实现,基于ID3算法
 要求使用的数据是一个由列表元素组成的列表，并且
 不能有缺失值，且每个样本最后一列是样本标签；
 test_decision_tree（）中是一个简单的例子；
@@ -14,6 +14,9 @@ test_decision_tree（）中是一个简单的例子；
 from math import log
 from numpy import *
 import operator
+import pickle
+
+import tree_plot
 
 
 def calc_shannon_ent(data_set):
@@ -120,10 +123,10 @@ def leaf_node_class(node_data_set):
 
 def create_tree(data_set, data_labels):
     """
-    递归建立决策树，结点用字典的形式表示
+    递归建立决策树，决策结点的value用字典的形式表示，叶结点的value就是普通数据
     :param data_set: 结点内包含的数据集
     :param data_labels: 结点的标签
-    :return: 建立的数
+    :return: 建立的树
     """
     class_list = [sample[-1] for sample in data_set]
 
@@ -146,23 +149,98 @@ def create_tree(data_set, data_labels):
     attribute_classes = set([sample[best_attribute] for sample in data_set])
     for attribute_class in attribute_classes:
         sub_node_data_set = split_data_set(data_set, best_attribute, attribute_class)
-        sub_labels = labels[:]
+        sub_labels = data_labels[:]
 
         # 将类别标签作为分支的键，值为下一结点的字典
         tree_node[tree_node_key][attribute_class] = create_tree(sub_node_data_set, sub_labels)
     return tree_node
 
-if __name__ == '__main__':
+
+def classify(input_tree, attribute_labels, test_sample):
+    """
+    递归实现一个样本的分类
+    :param input_tree: 决策树的模型
+    :param attribute_labels: 样本中的各个属性的标签组成的列表
+    :param test_sample: 测试样本
+    :return: 分类结果
+    """
+    node_keys_list = list(input_tree.keys())
+    root_node = node_keys_list[0]
+    sub_node = input_tree[root_node]
+
+    # 获取根结点标签对应的属性索引值，因为在建树的时候已经保证结点不会重复，所以不必将attribute_labels中用过的标签剔除
+    attribute_index = attribute_labels.index(root_node)
+    for key in sub_node.keys():
+        if test_sample[attribute_index] == key:
+            if type(sub_node[key]).__name__ == 'dict':
+                class_label = classify(sub_node[key], attribute_labels, test_sample)
+            else:
+                class_label = sub_node[key]
+    return class_label
+
+
+def test_tree():
+    """
+    测试trees.py模块
+    :return:None
+    """
     data = [[1, 1, 'yes'],
             [1, 1, 'yes'],
             [1, 0, 'no'],
             [0, 1, 'no'],
             [0, 1, 'no']]
-    labels = ['no suffacing', 'flippers']
-
-    print(create_tree(data, labels))
+    labels = ['no surfacing', 'flippers']
+    my_tree = create_tree(data, labels)
+    print(my_tree)
+    store_tree(my_tree, 'testtree.txt')
+    print(grab_tree('testtree.txt'))
     print(data)
     print(leaf_node_class(data))
     print(best_attribute_to_split(data))
     print(calc_shannon_ent(data))
     print(str(split_data_set(data, 0, 0)))
+    print(tree_plot.get_leaf_numbers(my_tree))
+    print(tree_plot.get_tree_depth(my_tree))
+
+    labels = ['no surfacing', 'flippers']
+    print(classify(my_tree, labels, [1, 1]))
+
+
+def test_glasses():
+    """
+    根据人的数据，推荐相应的眼镜
+    :return: None
+    """
+    lenses = []
+    with open('lenses.txt') as txt:
+        for line in txt.readlines():
+            lenses.append(line.strip().split('\t'))
+    lenses_labels = ['age', 'prescript', 'astigmatic', 'tear_rate']
+    lenses_tree = create_tree(lenses, lenses_labels)
+    store_tree(lenses_tree, 'lens_tree.txt')
+    tree_plot.create_plot(lenses_tree)
+
+
+def store_tree(tree, file_name):
+    """
+    储存已构造的决策树,注意打开方式，因为pickle默认为二进制
+    :param tree: 待保存的树
+    :param file_name: 保存路径
+    :return: None
+    """
+    with open(file_name, 'wb+') as ft:
+        pickle.dump(tree, ft, 0)
+
+
+def grab_tree(file_name):
+    """
+    读取已构造的决策树
+    :param file_name: 文件路径
+    :return: 读取的树
+    """
+    with open(file_name, 'rb+') as ft:
+        return pickle.load(ft)
+if __name__ == '__main__':
+    test_tree()
+    test_glasses()
+
