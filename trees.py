@@ -240,6 +240,8 @@ def grab_tree(file_name):
     """
     with open(file_name, 'rb+') as ft:
         return pickle.load(ft)
+
+
 if __name__ == '__main__':
     test_tree()
     test_glasses()
